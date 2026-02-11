@@ -486,6 +486,48 @@ async function sendReport() {
   }
   
   closeModal('email-modal');
+  alert('Generating and sending report...');
+  
+  // Generate PDF
+  const pdf = await generatePDF();
+  const pdfBase64 = pdf.output('datauristring').split(',')[1];
+  
+  // Calculate totals
+  const totalLoads = appState.trucks.reduce((sum, t) => sum + t.loads.length, 0);
+  const totalCubes = appState.trucks.reduce((sum, t) => {
+    return sum + (t.loads.length * TRUCK_CAPACITIES[t.type]);
+  }, 0);
+  
+  // Send via EmailJS
+  emailjs.send(service_yjm4216,template_hvydyw3 , {
+    to_email: email,
+    date: appState.jobDate,
+    client: appState.client,
+    project: appState.project,
+    total_trucks: appState.trucks.length,
+    total_loads: totalLoads,
+    total_cubes: totalCubes,
+    pdf_attachment: pdfBase64,
+    filename: `STH_Cartage_Report_${appState.jobDate}.pdf`
+  })
+  .then(() => {
+    alert(`Report sent successfully to ${email}!`);
+    if (confirm('Job completed! Start a new job?')) {
+      resetApp();
+    }
+  })
+  .catch((error) => {
+    console.error('Email error:', error);
+    alert('Failed to send email. PDF has been downloaded instead.');
+    
+    // Fallback: download PDF
+    const url = URL.createObjectURL(pdf.output('blob'));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `STH_Cartage_Report_${appState.jobDate}.pdf`;
+    a.click();
+  });
+}
   
   // Generate PDF
   const pdf = await generatePDF();
