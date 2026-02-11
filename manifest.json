@@ -2,7 +2,7 @@
   "name": "STH Piling Cartage Tracker",
   "short_name": "STH Tracker",
   "description": "Cartage truck counter and tracking system for STH Piling",
-  "start_url": "/",
+  "start_url": "/sth-cartage-tracker/",
   "display": "standalone",
   "background_color": "#2D3748",
   "theme_color": "#2D3748",
