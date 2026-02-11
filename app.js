@@ -1,7 +1,7 @@
 // Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('/sth-cartage-tracker/service-worker.js')
       .then(reg => console.log('ServiceWorker registered'))
       .catch(err => console.log('ServiceWorker registration failed:', err));
   });
