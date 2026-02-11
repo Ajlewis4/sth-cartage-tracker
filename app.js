@@ -473,56 +473,77 @@ function saveSTHSignature() {
   appState.sthSignature = canvas.toDataURL();
   
   closeModal('sth-signature-modal');
-  openModal('email-modal');
+  
+  // Skip email modal, go straight to generating report
+  sendReport();
 }
 
-// Send Report - FIXED VERSION
+// Send Report - Opens Email App with PDF Attached
 async function sendReport() {
-  const email = document.getElementById('email-address').value;
-  
-  if (!email || !email.includes('@')) {
-    alert('Please enter a valid email address');
-    return;
-  }
-  
-  closeModal('email-modal');
-  
   try {
     // Show loading message
-    console.log('Generating PDF...');
+    alert('Generating report...');
     
     // Generate PDF
     const pdf = await generatePDF();
     const pdfBlob = pdf.output('blob');
     const filename = `STH_Cartage_Report_${appState.jobDate}_${appState.project.replace(/\s+/g, '_')}.pdf`;
     
-    // Check if Web Share API is available (works great on mobile!)
-    if (navigator.share && navigator.canShare) {
+    // Calculate summary
+    const totalLoads = appState.trucks.reduce((sum, t) => sum + t.loads.length, 0);
+    const totalCubes = appState.trucks.reduce((sum, t) => {
+      return sum + (t.loads.length * TRUCK_CAPACITIES[t.type]);
+    }, 0);
+    
+    // Try Web Share API first (works on mobile - PDF will be attached!)
+    if (navigator.share) {
       try {
         const file = new File([pdfBlob], filename, { type: 'application/pdf' });
         
+        // Create share message
+        let shareText = `STH PILING - CARTAGE REPORT\n\n`;
+        shareText += `Date: ${new Date(appState.jobDate).toLocaleDateString('en-AU')}\n`;
+        shareText += `Client: ${appState.client}\n`;
+        shareText += `Project: ${appState.project}\n\n`;
+        shareText += `Total Trucks: ${appState.trucks.length}\n`;
+        shareText += `Total Loads: ${totalLoads}\n`;
+        shareText += `TOTAL VOLUME: ${totalCubes}m³\n\n`;
+        
+        appState.trucks.forEach((truck, idx) => {
+          shareText += `${idx + 1}. ${truck.rego} (${truck.type}): ${truck.loads.length} loads, ${truck.loads.length * TRUCK_CAPACITIES[truck.type]}m³\n`;
+        });
+        
         const shareData = {
           title: `STH Cartage Report - ${appState.project}`,
-          text: `Cartage report for ${appState.client} - ${appState.project}\nDate: ${appState.jobDate}\n\nTo: ${email}`,
+          text: shareText,
           files: [file]
         };
         
-        if (navigator.canShare(shareData)) {
+        // Check if we can share files
+        if (navigator.canShare && navigator.canShare(shareData)) {
           await navigator.share(shareData);
           
-          // If user shared successfully
+          // Success!
           if (confirm('Report shared! Start a new job?')) {
             resetApp();
           }
           return;
         }
       } catch (shareError) {
-        console.log('Share cancelled or not supported, falling back to download');
-        // Fall through to download method
+        if (shareError.name === 'AbortError') {
+          // User cancelled the share - that's OK
+          console.log('Share cancelled by user');
+          if (confirm('Share cancelled. Start a new job anyway?')) {
+            resetApp();
+          }
+          return;
+        }
+        console.log('Share failed, trying fallback method:', shareError);
+        // Fall through to fallback
       }
     }
     
-    // Fallback: Download PDF
+    // Fallback: Download PDF and show instructions
     const url = URL.createObjectURL(pdfBlob);
     const a = document.createElement('a');
     a.href = url;
@@ -530,49 +551,12 @@ async function sendReport() {
     a.click();
     URL.revokeObjectURL(url);
     
-    // Calculate summary for email body
-    const totalLoads = appState.trucks.reduce((sum, t) => sum + t.loads.length, 0);
-    const totalCubes = appState.trucks.reduce((sum, t) => {
-      return sum + (t.loads.length * TRUCK_CAPACITIES[t.type]);
-    }, 0);
+    // Show helpful message
+    alert(`✓ Report Generated!\n\n✓ PDF downloaded: ${filename}\n\nNext steps:\n1. Open your email app\n2. Create new email\n3. Attach the PDF from Downloads\n4. Send!`);
     
-    // Create email body text
-    let emailBody = 'STH PILING - CARTAGE REPORT\n\n';
-    emailBody += `Date: ${new Date(appState.jobDate).toLocaleDateString('en-AU')}\n`;
-    emailBody += `Client: ${appState.client}\n`;
-    emailBody += `Project: ${appState.project}\n\n`;
-    emailBody += '=== SUMMARY ===\n';
-    emailBody += `Total Trucks: ${appState.trucks.length}\n`;
-    emailBody += `Total Loads: ${totalLoads}\n`;
-    emailBody += `TOTAL VOLUME: ${totalCubes}m³\n\n`;
-    emailBody += '=== TRUCK DETAILS ===\n\n';
-    
-    appState.trucks.forEach((truck, idx) => {
-      const truckCubes = truck.loads.length * TRUCK_CAPACITIES[truck.type];
-      emailBody += `${idx + 1}. ${truck.rego} - ${truck.type}\n`;
-      emailBody += `   Loads: ${truck.loads.length}\n`;
-      emailBody += `   Volume: ${truckCubes}m³\n`;
-      emailBody += `   Times: ${truck.loads.map(l => l.time).join(', ')}\n\n`;
-    });
-    
-    emailBody += `\nPDF Report: ${filename}\n`;
-    emailBody += '(PDF has been downloaded - please attach it to this email)\n\n';
-    emailBody += 'Generated by STH Piling Cartage Tracker';
-    
-    // Try to open email client
-    const subject = `STH Cartage Report - ${appState.project} - ${appState.jobDate}`;
-    const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
-    
-    window.location.href = mailtoLink;
-    
-    // Show success message after a short delay
-    setTimeout(() => {
-      alert(`✓ Report Generated!\n\n✓ PDF downloaded to your device\n✓ Email app opening\n\nFile: ${filename}\n\nNext step: Attach the PDF and send!`);
-      
-      if (confirm('Job completed! Start a new job?')) {
-        resetApp();
-      }
-    }, 1000);
+    if (confirm('Job completed! Start a new job?')) {
+      resetApp();
+    }
     
   } catch (error) {
     console.error('Error generating report:', error);
