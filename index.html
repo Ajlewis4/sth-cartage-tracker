@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="STH Piling Cartage Tracker">
+<meta name="theme-color" content="#0B0D10">
+<title>STH Cartage</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --bg: #0B0D10;
+    --surface: #15181E;
+    --surface-2: #1C2029;
+    --surface-3: #242935;
+    --border: #272C38;
+    --border-2: #363C4A;
+    --muted: #6B7384;
+    --muted-2: #8891A0;
+    --text: #E6E9EF;
+    --yellow: #FFD000;
+    --yellow-dim: #B99200;
+    --yellow-soft: rgba(255,208,0,0.12);
+    --green: #22C55E;
+    --red: #EF4444;
+    --pink: #F4B6D2;
+  }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  button { font-family: inherit; }
+
+  /* Splash */
+  #splash-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; transition: opacity 0.4s ease;
+  }
+  #splash-screen.hidden { opacity: 0; pointer-events: none; }
+  .splash-logo { max-width: 280px; width: 70%; animation: fadeInScale 0.8s ease; filter: brightness(1.1); }
+  @keyframes fadeInScale {
+    0% { opacity: 0; transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* Main app */
+  #app { display: none; max-width: 480px; margin: 0 auto; padding-bottom: 140px; }
+  #app.visible { display: block; }
+
+  /* Header */
+  .header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display:flex; align-items:center; gap: 10px; }
+  .brand-logo {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: var(--yellow); color: var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    font-weight: 900; font-size: 18px;
+  }
+  .brand-name { font-weight: 900; font-size: 14px; letter-spacing: 0.02em; }
+  .brand-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--muted); letter-spacing: 0.25em; margin-top: 1px;
+  }
+  .pill {
+    display:flex; align-items:center; gap:6px;
+    padding: 5px 10px; border-radius: 999px; background: var(--surface);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.15em; color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .pill .dot { width:6px; height:6px; border-radius:50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: p 1.8s infinite; }
+  @keyframes p { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Job banner */
+  .job-banner {
+    padding: 20px 16px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .job-flag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--yellow); letter-spacing: 0.3em;
+    margin-bottom: 6px;
+  }
+  .job-title { font-size: 22px; font-weight: 900; line-height: 1.15; letter-spacing: -0.015em; }
+  .job-title.placeholder { color: var(--muted-2); font-weight: 700; font-size: 18px; }
+  .job-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 0.03em;
+  }
+
+  /* Setup card (shown when no job entered) */
+  .setup-card {
+    margin: 14px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .setup-title {
+    font-weight: 800; font-size: 13px; letter-spacing: 0.1em;
+    color: var(--muted); margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace; text-transform: uppercase;
+  }
+  .form-group { margin-bottom: 12px; }
+  .form-group:last-child { margin-bottom: 0; }
+  label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--muted); margin-bottom: 6px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  input, select {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 15px; font-weight: 600;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--yellow);
+    background: var(--surface-3);
+  }
+  input::placeholder { color: var(--muted); font-weight: 500; }
+
+  /* KPI strip */
+  .kpis {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    padding: 12px 12px; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 10px; text-align: center;
+  }
+  .kpi-num { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
+  .kpi-num.y { color: var(--yellow); }
+  .kpi-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; color: var(--muted); letter-spacing: 0.22em; margin-top: 6px;
+  }
+
+  /* Trucks list */
+  .trucks { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: var(--muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+
+  .truck {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .truck.completed { border-color: rgba(34,197,94,0.35); }
+
+  .truck-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .truck-head-text { min-width: 0; flex: 1; }
+  .truck-rego { font-size: 20px; font-weight: 900; letter-spacing: 0.04em; }
+  .truck-company {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--muted); letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .truck-type-chip {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    padding: 5px 9px; border-radius: 6px;
+    background: var(--surface-2); color: var(--yellow);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .truck-type-chip.done { color: var(--green); border-color: rgba(34,197,94,0.35); }
+
+  .truck-main {
+    display: grid; grid-template-columns: auto 1fr;
+    gap: 12px; padding: 14px 16px; align-items: center;
+  }
+  .big-count {
+    font-size: 64px; font-weight: 900; letter-spacing: -0.04em; line-height: 0.9;
+    color: var(--yellow);
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.18s;
+  }
+  .truck.completed .big-count { color: var(--green); }
+  .count-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .count-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    letter-spacing: 0.25em; color: var(--muted);
+  }
+  .count-m3 { font-weight: 800; font-size: 20px; letter-spacing: -0.01em; color: var(--text); }
+  .count-last {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted); margin-top: 4px;
+  }
+  .count-last strong { color: var(--pink); font-weight: 700; }
+
+  .load-strip {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    padding: 0 16px 14px;
+  }
+  .load-strip .pip {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700;
+    padding: 3px 6px; border-radius: 4px;
+    background: var(--surface-2); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .load-strip .pip.latest { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+
+  .truck-actions { display: grid; grid-template-columns: 3fr 1fr 1fr; }
+  .ta-btn {
+    padding: 18px 0;
+    font-weight: 900; font-size: 15px; letter-spacing: 0.05em;
+    border: none; cursor: pointer;
+    border-top: 1px solid var(--border);
+  }
+  .ta-primary { background: var(--yellow); color: var(--bg); }
+  .ta-primary:active { background: var(--yellow-dim); transform: scale(0.99); }
+  .ta-primary:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+  .ta-secondary {
+    background: var(--surface); color: var(--muted);
+    border-left: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .ta-secondary:active { background: var(--surface-2); }
+  .ta-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+  .ta-finish {
+    background: var(--surface); color: var(--green);
+    border-left: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .ta-finish:active { background: var(--surface-2); }
+
+  .truck-done-footer {
+    padding: 14px 16px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.18em;
+    color: var(--green);
+    border-top: 1px solid var(--border);
+    background: rgba(34,197,94,0.06);
+  }
+  .truck-done-footer .remove {
+    margin-left: 10px; color: var(--muted); cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* Add truck */
+  .add-truck {
+    margin: 0 12px 12px; padding: 18px;
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    text-align: center;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.22em;
+    cursor: pointer;
+    background: transparent;
+    width: calc(100% - 24px);
+    transition: all 0.15s;
+  }
+  .add-truck:active { background: var(--surface); border-color: var(--yellow); color: var(--yellow); }
+  .add-truck .plus { font-size: 22px; color: var(--yellow); font-weight: 900; margin-right: 8px; font-family: inherit; }
+
+  /* Bottom bar */
+  .bb {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(11,13,16,0.92);
+    padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    z-index: 20;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .bb .inner { max-width: 480px; margin: 0 auto; display: flex; gap: 8px; }
+  .bb-btn {
+    flex: 1; padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 800; font-size: 13px; letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .bb-btn.primary { background: var(--yellow); color: var(--bg); border-color: var(--yellow); font-weight: 900; }
+  .bb-btn.primary:active { background: var(--yellow-dim); }
+  .bb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Modal */
+  .modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 1000;
+    padding: 0;
+    backdrop-filter: blur(4px);
+    align-items: flex-end;
+    justify-content: center;
+  }
+  @media (min-width: 600px) { .modal { align-items: center; padding: 20px; } }
+  .modal.active { display: flex; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s;
+  }
+  @media (min-width: 600px) { .modal-content { border-radius: 20px; } }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0.5; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal-handle {
+    width: 40px; height: 4px; background: var(--border-2);
+    border-radius: 2px; margin: 0 auto 16px;
+  }
+  @media (min-width: 600px) { .modal-handle { display: none; } }
+
+  .modal-header {
+    font-size: 20px; font-weight: 900; color: var(--text);
+    margin-bottom: 18px; letter-spacing: -0.01em;
+  }
+  .modal-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--yellow); letter-spacing: 0.25em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+
+  .summary-section { margin-bottom: 16px; }
+  .summary-row {
+    display: flex; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row strong { font-weight: 800; }
+  .summary-row .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+  .modal-buttons { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-btn {
+    flex: 1; padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 700; font-size: 14px; letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .modal-btn.primary { background: var(--yellow); color: var(--bg); border-color: var(--yellow); font-weight: 900; }
+  .modal-btn.danger { background: transparent; color: var(--red); border-color: var(--red); }
+  .modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .sig-pad-wrap {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin: 10px 0;
+  }
+  .sig-pad {
+    display: block; width: 100%; height: 180px;
+    background: #fff;
+    touch-action: none;
+    border-radius: 6px;
+  }
+  .sig-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--muted); letter-spacing: 0.2em;
+    text-align: center; margin-top: 4px; text-transform: uppercase;
+  }
+
+  .info-box {
+    background: var(--yellow-soft);
+    border: 1px solid rgba(255,208,0,0.3);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .warn-box {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #FCA5A5;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+
+  /* Reset button in header area */
+  .reset-btn {
+    background: transparent; border: none;
+    color: var(--muted); font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.15em;
+    cursor: pointer; padding: 4px 8px;
+  }
+  .reset-btn:active { color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- Splash -->
+<div id="splash-screen">
+  <img src="logo.jpg" alt="STH Piling" class="splash-logo">
+</div>
+
+<!-- Main app -->
+<div id="app">
+  <header class="header">
+    <div class="brand">
+      <div class="brand-logo">S</div>
+      <div>
+        <div class="brand-name">STH CARTAGE</div>
+        <div class="brand-sub" id="header-sub">GATE</div>
+      </div>
+    </div>
+    <div class="pill"><span class="dot"></span><span id="clock">--:--</span></div>
+  </header>
+
+  <!-- Job banner -->
+  <div class="job-banner" id="job-banner">
+    <div class="job-flag" id="job-flag">TAP TO SET UP JOB</div>
+    <div class="job-title placeholder" id="job-title">No Job Active</div>
+    <div class="job-sub" id="job-sub">—</div>
+  </div>
+
+  <!-- Setup card (visible when no job) -->
+  <div class="setup-card" id="setup-card">
+    <div class="setup-title">Job Setup</div>
+    <div class="form-group">
+      <label for="job-date">Date</label>
+      <input type="date" id="job-date">
+    </div>
+    <div class="form-group">
+      <label for="client">Client</label>
+      <input type="text" id="client" placeholder="e.g. APM Group" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label for="project">Project</label>
+      <input type="text" id="project" placeholder="e.g. Bolton Ave, Hampton" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- KPIs (shown when trucks exist) -->
+  <div class="kpis" id="kpis" style="display:none;">
+    <div class="kpi">
+      <div class="kpi-num y" id="stat-trucks">0</div>
+      <div class="kpi-label">TRUCKS</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" id="stat-loads">0</div>
+      <div class="kpi-label">LOADS</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-num" id="stat-m3">0</div>
+      <div class="kpi-label">m³ CARTED</div>
+    </div>
+  </div>
+
+  <!-- Truck list -->
+  <div id="trucks-container" class="trucks">
+    <div class="empty-state">
+      <div class="big">⊕</div>
+      NO TRUCKS ADDED<br>TAP ADD TRUCK BELOW
+    </div>
+  </div>
+
+  <!-- Add truck -->
+  <button class="add-truck" onclick="addTruck()">
+    <span class="plus">+</span>ADD TRUCK
+  </button>
+</div>
+
+<!-- Bottom bar -->
+<nav class="bb" id="bottom-bar" style="display:none;">
+  <div class="inner">
+    <button class="bb-btn primary" onclick="openModal('export-modal')">EXPORT TO REGISTER</button>
+    <button class="bb-btn" onclick="confirmReset()">RESET</button>
+  </div>
+</nav>
+
+<!-- Add Truck Modal -->
+<div id="add-truck-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-handle"></div>
+    <div class="modal-sub">NEW TRUCK</div>
+    <div class="modal-header">Add Truck</div>
+
+    <div class="form-group">
+      <label for="truck-type">Truck Type</label>
+      <select id="truck-type">
+        <option value="">Select type...</option>
+        <option value="Tandem">Tandem · 10m³ / load</option>
+        <option value="TT">Truck &amp; Trailer · 22m³ / load</option>
+        <option value="Quad">Quad · 25m³ / load</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="truck-rego">Registration</label>
+      <input type="text" id="truck-rego" placeholder="e.g. 1KX4AP" style="text-transform: uppercase;" autocomplete="off">
+    </div>
+
+    <div class="form-group">
+      <label for="truck-company">Cartage Company (optional)</label>
+      <input type="text" id="truck-company" placeholder="e.g. Hanson Transport" autocomplete="off">
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn danger" onclick="closeModal('add-truck-modal')">Cancel</button>
+      <button class="modal-btn primary" onclick="saveTruck()">Add Truck</button>
+    </div>
+  </div>
+</div>
+
+<!-- Driver Signature Modal -->
+<div id="driver-signature-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-handle"></div>
+    <div class="modal-sub">FINISH &amp; SIGN</div>
+    <div class="modal-header">Driver Signature</div>
+    <div id="driver-summary" class="summary-section"></div>
+    <div class="sig-pad-wrap">
+      <canvas id="driver-signature-pad" class="sig-pad"></canvas>
+    </div>
+    <div class="sig-label">SIGN WITH FINGER OR STYLUS</div>
+    <div class="modal-buttons">
+      <button class="modal-btn" onclick="clearSignature()">Clear</button>
+      <button class="modal-btn danger" onclick="closeModal('driver-signature-modal')">Cancel</button>
+      <button class="modal-btn primary" onclick="saveDriverSignature()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div id="export-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-handle"></div>
+    <div class="modal-sub">END OF DAY</div>
+    <div class="modal-header">Export to Register</div>
+    <div class="info-box">
+      Downloads an Excel file formatted for the STH Cartage Register. Lucy fills in cartage company, material, tip site, rate paid, and docket numbers from the office.
+    </div>
+    <div id="export-summary" class="summary-section"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn danger" onclick="closeModal('export-modal')">Cancel</button>
+      <button class="modal-btn primary" onclick="exportRegister()">Download</button>
+    </div>
+  </div>
+</div>
+
+<script src="xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
