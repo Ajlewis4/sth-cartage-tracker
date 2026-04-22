@@ -1,48 +1,64 @@
-# STH Cartage Counter — v3
+# STH Cartage Counter — v4 (Firebase real-time sync)
 
-Gate-staff PWA for counting truck loads, exports directly to the STH Cartage Register.
+Two-role app with live sync between gate (mobile) and office (desktop editor).
+One URL, everyone picks their role on open.
 
-## What's new in v3
+## What's new in v4
 
-- **Full visual redesign** — "Yard Dark" theme: dark charcoal UI, yellow accents, high contrast for sun-readable screens and dark cabs
-- **Bottom-sheet modals** — native feel on mobile with drag handles
-- **Live clock** in top-right pill with pulsing LIVE indicator
-- **Job banner** always visible at top showing active project + client + day
-- **Inline KPIs** (trucks / loads / m³ carted) visible once work starts
-- **Per-truck load pips** — quick scan of load times, last one highlighted yellow
-- **"X min ago"** timestamp for each truck's most recent load
-- **Offline-first** — xlsx library bundled locally, no CDN dependency
-- **localStorage persistence** — reloads don't lose the day's work
-- Everything from v2 (register export, signatures, Quad=25m³, etc.) still works
+- **Role picker** on first launch: Gate or Office
+- **Firebase Firestore backend** — gate data syncs to office instantly
+- **Live office editor** — Lucy fills material, tip site, rate, docket, invoice as trucks come in
+- **Toast notifications** — office gets a flash when a new truck is added or load logged
+- **Completed register export from office** — no need to wait for gate's end-of-day
+- **"End Day" softer than reset** — job goes inactive but stays in Firebase for reference
 
 ## Folder contents
 
 ```
-index.html                     Main UI
-app.js                         All logic
-xlsx.full.min.js               SheetJS bundled (881KB — enables offline export)
-manifest.json                  PWA manifest
-service-worker.js              Offline cache
-logo.jpg                       STH logo
-icon-192.png, icon-512.png     PWA icons
-Cartage_Register_BLANK.xlsx    Register template (fetched at export time)
+index.html                      Main UI (all 3 views: picker, gate, office)
+firebase-config.js              Firebase initialization with your project keys
+app.js                          All app logic
+xlsx.full.min.js                SheetJS (bundled for offline export)
+manifest.json                   PWA manifest
+service-worker.js               Offline cache (excludes Firebase URLs)
+logo.jpg                        STH logo
+icon-192.png, icon-512.png      PWA icons
+Cartage_Register_BLANK.xlsx     Register template
+firestore.rules                 Firestore security rules (paste into Firebase Console)
 ```
 
 ## Deploy
 
-Upload the whole folder to any static host (GitHub Pages, Netlify, Vercel, etc).
-No build step, no server code.
+Same as v3 — upload all files to the GitHub repo (replacing v3 files). GitHub Pages rebuilds automatically within 1–2 minutes.
 
-## Verified
+## Security rules
 
-End-to-end tested: 3 trucks × 15 loads = 291m³ → exported register file → opened in LibreOffice → **Daily Total = 291m³ ✓**
+Firestore started in "test mode" which expires after 30 days. Before that:
 
-## How gate staff use it
+1. Open Firebase Console → Firestore Database → **Rules** tab
+2. Delete what's there
+3. Paste the contents of `firestore.rules` (from this zip)
+4. Click **Publish**
 
-1. Fill Date + Client + Project (once per day)
-2. Tap **+ ADD TRUCK** for each truck (type + rego + company)
-3. Tap **+1 LOAD** each time a truck tips or loads up
-4. Tap **FINISH** → driver signs on screen → truck locks
-5. At end of day, tap **EXPORT TO REGISTER** → downloads filled `.xlsx`
+This keeps the app open (no login needed) but stops obviously malformed writes. For stronger security (username/password required), we can add Firebase Auth later — ~30 minutes of work.
 
-Lucy then opens the xlsx in the office and fills in: cartage company (if not captured), material, tip site, rate paid, docket numbers, invoice numbers. The register's built-in formulas handle the rest.
+## How the data is stored
+
+```
+/jobs/{jobId}
+  └── date, client, project, active, createdAt
+  └── /trucks/{truckId}
+      └── type, rego, company, completed, signature, createdAt
+      └── /loads/{loadId}
+          └── time, timestamp, material, tipSite, ratePaid, docket, invoice, expImp
+```
+
+Only ONE job is marked `active: true` at a time. When someone clicks "End Day", it flips to `false` but stays in the database.
+
+## Viewing old jobs
+
+Old jobs aren't browsable in the app yet — just use the Firebase Console → Firestore → `jobs` collection to see them. If you want an in-app "past jobs" view, that's a small addition for later.
+
+## Costs
+
+Firebase free tier is generous: 50k reads, 20k writes, 20k deletes per day. Even with 5 gate staff + 3 office people watching all day, you'd use maybe 2-3k operations daily. Free forever at this volume.

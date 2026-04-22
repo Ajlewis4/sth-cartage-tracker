@@ -1,0 +1,48 @@
+// ============================================
+// Firestore Security Rules for STH Cartage
+// ============================================
+// Paste this into Firebase Console → Firestore Database → Rules tab
+// when the 30-day "test mode" period is about to expire.
+//
+// This keeps the app open (no login required) but adds basic
+// sanity checks to prevent obvious misuse.
+//
+// For stronger security (required users/passwords), we'd add Firebase Auth —
+// happy to do that later if you want.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Jobs collection
+    match /jobs/{jobId} {
+      // Anyone can read active jobs
+      allow read: if true;
+
+      // Writes: must have the basic shape we expect
+      allow create: if request.resource.data.keys().hasAll(['date', 'project'])
+                    && request.resource.data.date is string
+                    && request.resource.data.project is string
+                    && request.resource.data.project.size() < 200;
+
+      allow update: if true; // keep open for now — tighten if needed
+      allow delete: if true;
+
+      // Trucks sub-collection
+      match /trucks/{truckId} {
+        allow read: if true;
+        allow create: if request.resource.data.keys().hasAll(['type', 'rego'])
+                      && request.resource.data.type in ['Tandem', 'TT', 'Quad']
+                      && request.resource.data.rego is string
+                      && request.resource.data.rego.size() < 20;
+        allow update, delete: if true;
+
+        // Loads sub-collection
+        match /loads/{loadId} {
+          allow read: if true;
+          allow create, update, delete: if true;
+        }
+      }
+    }
+  }
+}

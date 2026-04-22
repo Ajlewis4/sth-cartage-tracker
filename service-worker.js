@@ -1,15 +1,15 @@
-const CACHE_NAME = 'sth-cartage-v3';
+const CACHE_NAME = 'sth-cartage-v4';
 const urlsToCache = [
   './',
   './index.html',
   './app.js',
+  './firebase-config.js',
   './manifest.json',
   './logo.jpg',
   './icon-192.png',
   './icon-512.png',
   './Cartage_Register_BLANK.xlsx',
-  './xlsx.full.min.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap'
+  './xlsx.full.min.js'
 ];
 
 self.addEventListener('install', event => {
@@ -31,6 +31,16 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  const url = event.request.url;
+
+  // Never cache Firebase requests — they need live connections
+  if (url.includes('firestore.googleapis.com') ||
+      url.includes('firebaseio.com') ||
+      url.includes('googleapis.com') ||
+      url.includes('gstatic.com')) {
+    return; // Let network handle it
+  }
+
   event.respondWith(
     caches.match(event.request).then(response => {
       if (response) return response;
